@@ -1,3 +1,4 @@
+import os
 import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
@@ -19,9 +20,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MORGANXMYSTIC Storage", lifespan=lifespan)
 
+# --- FIX: Auto-Create Static Directory ---
+# This prevents the "RuntimeError: Directory 'app/static' does not exist" on Koyeb
+static_dir = "app/static"
+if not os.path.exists(static_dir):
+    os.makedirs(static_dir)
+
 # Mount Static Files (CSS/JS)
-# Ensure the folder 'app/static' exists
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Fix for annoying 404 Favicon errors in browser console
 @app.get('/favicon.ico', include_in_schema=False)
