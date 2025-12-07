@@ -2,11 +2,14 @@ fastapi
 uvicorn
 jinja2
 python-multipart
-python-dotenv
 beanie
 motor
+pydantic
+pydantic-settings
 pyrogram
-passlib[bcrypt]
+tgcrypto
 python-jose[cryptography]
+passlib
+argon2-cffi
 aiofiles
-requests
+dnspython
