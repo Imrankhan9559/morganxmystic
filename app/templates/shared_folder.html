@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mx-auto mt-10">
+    
+    <div class="bg-gray-800 p-6 rounded-t-xl border-b border-gray-600 flex justify-between items-center shadow-lg">
+        <div>
+            <div class="text-xs text-blue-400 uppercase font-bold tracking-widest mb-1">SHARED BUNDLE</div>
+            <h1 class="text-2xl text-white font-bold"><i class="fas fa-box-open mr-2 text-yellow-500"></i> {{ bundle_name }}</h1>
+        </div>
+        <div class="text-gray-400 text-sm">
+            {{ items|length }} Items
+        </div>
+    </div>
+
+    <div class="bg-gray-900 p-6 rounded-b-xl border border-gray-700 min-h-[50vh]">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {% for item in items %}
+            <div class="bg-gray-800 p-4 rounded-lg hover:bg-gray-750 transition group relative flex flex-col items-center text-center shadow-lg border border-gray-700">
+                
+                <div class="text-5xl mb-4 text-gray-500 group-hover:text-gray-300">
+                    {% if "image" in item.mime_type %} <i class="fas fa-file-image text-purple-400"></i>
+                    {% elif "video" in item.mime_type %} <i class="fas fa-file-video text-red-500"></i>
+                    {% else %} <i class="fas {{ item.icon }}"></i> {% endif %}
+                </div>
+
+                <div class="text-gray-200 text-sm font-bold truncate w-full mb-1">{{ item.name }}</div>
+                <div class="text-xs text-gray-500">{{ item.formatted_size }}</div>
+
+                <div class="absolute inset-0 bg-black bg-opacity-80 opacity-0 group-hover:opacity-100 transition rounded-lg flex flex-col justify-center items-center gap-2">
+                    <a href="/s/stream/file/{{ item.id }}" target="_blank" class="bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-bold hover:scale-105 transition">View</a>
+                    <a href="/s/stream/file/{{ item.id }}" download="{{ item.name }}" class="bg-green-600 text-white px-4 py-1 rounded-full text-xs font-bold hover:scale-105 transition">Download</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="mt-8 text-center">
+        <a href="/register" class="inline-block bg-gradient-to-r from-red-600 to-pink-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-red-500/50 transition transform hover:-translate-y-1">
+            Create Your Own Cloud Storage - Free
+        </a>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="flex flex-col md:flex-row justify-between items-center mb-8 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-2xl gap-4">
+    <div class="flex items-center w-full md:w-auto overflow-hidden">
+        {% if current_folder %}
+            <a href="/dashboard?folder_id={{ current_folder.parent_id if current_folder.parent_id else '' }}" class="bg-gray-700 hover:bg-gray-600 w-10 h-10 flex items-center justify-center rounded-full text-white transition mr-4 shadow-lg">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="flex flex-col">
+                <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Browsing</span>
+                <div class="text-xl font-bold text-red-500 truncate max-w-[200px] flex items-center">
+                    <i class="fas fa-folder-open mr-2 text-yellow-500"></i> {{ current_folder.name }}
+                </div>
+            </div>
+        {% else %}
+            <div class="flex flex-col ml-2">
+                <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Storage</span>
+                <div class="text-xl font-bold text-red-500 flex items-center">
+                    <i class="fas fa-hdd mr-2"></i> Root
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="flex space-x-3 w-full md:w-auto justify-end items-center">
+        <button onclick="toggleSelectMode()" id="selectModeBtn" class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-white flex items-center shadow-lg font-bold transition text-sm">
+            <i class="fas fa-check-square mr-2"></i> Select
+        </button>
+        <form action="/create_folder" method="post" class="flex shadow-lg">
+            <input type="hidden" name="parent_id" value="{{ current_folder.id if current_folder else '' }}">
+            <input type="text" name="folder_name" placeholder="New Folder..." class="bg-gray-900 border border-gray-600 rounded-l-lg px-4 text-white text-sm focus:outline-none focus:border-blue-500 w-full md:w-40 transition-all" required>
+            <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-r-lg text-white text-sm transition"><i class="fas fa-folder-plus"></i></button>
+        </form>
+        <a href="/upload_zone?folder_id={{ current_folder.id if current_folder else '' }}" class="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 px-6 py-2 rounded-lg text-white flex items-center shadow-lg font-bold transition transform hover:scale-105">
+            <i class="fas fa-cloud-upload-alt mr-2"></i> Upload
+        </a>
+    </div>
+</div>
+
+<div id="selectionBar" class="hidden fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 px-6 py-3 rounded-full shadow-2xl border border-purple-500 flex items-center gap-4 z-50 animate-bounce-in">
+    <span class="text-white font-bold"><span id="selectCount" class="text-purple-400">0</span> selected</span>
+    
+    <button onclick="shareSelected()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg transition flex items-center">
+        <i class="fas fa-link mr-1"></i>
+    </button>
+
+    <button onclick="downloadSelectedZip()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg transition flex items-center" title="Download as Zip">
+        <i class="fas fa-file-archive mr-1"></i> Zip
+    </button>
+    
+    <button onclick="deleteSelected()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg transition flex items-center">
+        <i class="fas fa-trash-alt mr-1"></i>
+    </button>
+
+    <button onclick="toggleSelectMode()" class="text-gray-400 hover:text-white transition"><i class="fas fa-times"></i></button>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-6 mb-20">
+    {% for item in items %}
+        <div class="bg-gray-800 p-4 rounded-xl hover:bg-gray-750 border border-gray-700 hover:border-gray-500 relative group flex flex-col items-center transition duration-300 shadow-md hover:shadow-2xl cursor-pointer" onclick="toggleItemCheck('{{ item.id }}')">
+            <div class="selection-checkbox hidden absolute top-3 left-3 z-30">
+                <input type="checkbox" value="{{ item.id }}" class="w-5 h-5 accent-purple-600 cursor-pointer shadow-sm pointer-events-none">
+            </div>
+            <div class="text-6xl mb-4 mt-2 text-gray-500 group-hover:text-gray-300 transition transform group-hover:scale-110 duration-300 relative">
+                {% if item.is_folder %} 
+                    <i class="fas fa-folder text-yellow-500 drop-shadow-lg"></i>
+                    {% if item.collaborators and item.collaborators|length > 0 %}
+                        <div class="absolute -bottom-2 -right-2 bg-gray-800 rounded-full p-1 border border-gray-600"><i class="fas fa-users text-purple-400 text-xs"></i></div>
+                    {% endif %}
+                {% elif "image" in item.mime_type %} <i class="fas fa-file-image text-purple-400 drop-shadow-lg"></i>
+                {% elif "video" in item.mime_type %} <i class="fas fa-file-video text-red-500 drop-shadow-lg"></i>
+                {% elif "audio" in item.mime_type %} <i class="fas fa-file-audio text-green-400 drop-shadow-lg"></i>
+                {% elif "text" in item.mime_type or "code" in item.mime_type %}<i class="fas fa-file-code text-blue-400 drop-shadow-lg"></i>
+                {% else %} <i class="fas {{ item.icon }} drop-shadow-lg"></i> {% endif %}
+            </div>
+            <div class="text-center w-full overflow-hidden px-2 pb-2">
+                <div class="truncate text-sm font-bold text-gray-200 group-hover:text-white transition" title="{{ item.name }}">
+                    {# Visual Fix: If name contains '/', split it and take the last part #}
+                    {% if '/' in item.name %}
+                        {{ item.name.split('/')[-1] }}
+                    {% else %}
+                        {{ item.name }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="action-overlay absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col justify-center items-center opacity-0 group-hover:opacity-100 transition duration-300 rounded-xl space-y-3 z-10 backdrop-blur-sm border border-gray-600">
+                {% if item.is_folder %}
+                    <a href="/dashboard?folder_id={{ item.id }}" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-1.5 rounded-full text-xs font-bold shadow-lg transform hover:scale-105 transition no-underline">Open</a>
+                    {% if item.owner_phone == user.phone_number %}
+                        <button onclick="event.stopPropagation(); openCollabModal('{{ item.id }}', '{{ item.name }}')" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-1.5 rounded-full text-xs font-bold shadow-lg transform hover:scale-105 transition">
+                            {% if item.collaborators|length > 0 %}<i class="fas fa-users-cog mr-1"></i> Manage{% else %}<i class="fas fa-user-plus mr-1"></i> Add Team{% endif %}
+                        </button>
+                    {% endif %}
+                {% else %}
+                    <div class="flex space-x-3">
+                        <a href="/player/{{ item.id }}" class="w-10 h-10 bg-green-600 hover:bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg transform hover:scale-110 transition"><i class="fas fa-play"></i></a>
+                        
+                        <a href="/stream/data/{{ item.id }}" download="{{ item.name }}" class="w-10 h-10 bg-yellow-600 hover:bg-yellow-500 text-white rounded-full flex items-center justify-center shadow-lg transform hover:scale-110 transition"><i class="fas fa-download"></i></a>
+                        
+                        <button onclick="event.stopPropagation(); shareFile('{{ item.id }}')" class="w-10 h-10 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg transform hover:scale-110 transition"><i class="fas fa-link"></i></button>
+                    </div>
+                {% endif %}
+                <form action="/delete/{{ item.id }}" method="post" onsubmit="return confirm('Delete this?');">
+                    <button type="submit" onclick="event.stopPropagation();" class="text-red-500 hover:text-red-300 text-xs font-bold flex items-center mt-2 group-hover:underline"><i class="fas fa-trash-alt mr-1"></i> Delete</button>
+                </form>
+            </div>
+        </div>
+    {% else %}
+        <div class="col-span-full flex flex-col items-center justify-center py-24 text-gray-600"><i class="fas fa-box-open text-6xl opacity-30 mb-4"></i><p class="text-xl font-bold">This folder is empty.</p></div>
+    {% endfor %}
+</div>
+
+<div id="shareModal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex justify-center items-center z-50 backdrop-blur-sm"><div class="bg-gray-800 p-8 rounded-2xl w-full max-w-md border border-gray-600 shadow-2xl"><h3 class="text-white text-xl font-bold mb-4 flex items-center"><i class="fas fa-share-alt text-blue-500 mr-2"></i> Share Link</h3><input type="text" id="shareInput" readonly class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-green-400 text-sm font-mono mb-6"><div class="flex justify-end space-x-3"><button onclick="document.getElementById('shareModal').classList.add('hidden')" class="text-gray-400 font-bold text-sm">Close</button><button onclick="copyLink()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Copy</button></div></div></div>
+<div id="collabModal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex justify-center items-center z-50 backdrop-blur-sm"><div class="bg-gray-800 p-8 rounded-2xl w-full max-w-md border border-gray-600 shadow-2xl"><h3 class="text-white text-xl font-bold mb-1 flex items-center"><i class="fas fa-users-cog text-purple-500 mr-2"></i> Manage Team</h3><p class="text-gray-500 text-xs mb-6">Folder: <span id="collabFolderName" class="text-white font-bold"></span></p><input type="hidden" id="collabFolderId"><div class="mb-6"><div class="text-xs uppercase text-gray-500 font-bold mb-2">Current Members</div><div id="teamList" class="max-h-32 overflow-y-auto bg-gray-900 rounded-lg border border-gray-700 p-2 space-y-2"></div></div><div class="border-t border-gray-700 pt-4"><label class="block text-gray-500 text-xs uppercase font-bold mb-2">Add New Member</label><div class="flex space-x-2"><input type="text" id="collabPhone" placeholder="+91..." class="flex-grow bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm outline-none"><button onclick="submitCollab()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold text-sm">Add</button></div></div><div class="flex justify-end mt-6"><button onclick="document.getElementById('collabModal').classList.add('hidden')" class="text-gray-400 font-bold text-sm">Done</button></div></div></div>
+
+<script>
+let selectMode = false; let selectedIds = new Set();
+function toggleSelectMode() { selectMode = !selectMode; selectedIds.clear(); document.getElementById('selectCount').innerText = "0"; document.querySelectorAll('.selection-checkbox').forEach(el => el.classList.toggle('hidden', !selectMode)); document.querySelectorAll('.action-overlay').forEach(el => el.style.display = selectMode ? 'none' : 'flex'); document.getElementById('selectionBar').classList.toggle('hidden', !selectMode); const btn = document.getElementById('selectModeBtn'); if(selectMode) { btn.classList.add('bg-gray-600'); btn.innerText = "Cancel"; } else { btn.classList.remove('bg-gray-600'); btn.innerHTML = '<i class="fas fa-check-square mr-2"></i> Select'; document.querySelectorAll('input[type="checkbox"]').forEach(c => { c.checked = false; c.parentElement.parentElement.classList.remove('ring-2', 'ring-purple-500'); }); } }
+function toggleItemCheck(id) { if (!selectMode) return; const checkbox = document.querySelector(`input[value="${id}"]`); if (selectedIds.has(id)) { selectedIds.delete(id); checkbox.checked = false; checkbox.parentElement.parentElement.classList.remove('ring-2', 'ring-purple-500'); } else { selectedIds.add(id); checkbox.checked = true; checkbox.parentElement.parentElement.classList.add('ring-2', 'ring-purple-500'); } document.getElementById('selectCount').innerText = selectedIds.size; }
+
+// --- BULK ZIP DOWNLOAD ---
+async function downloadSelectedZip() {
+    if (selectedIds.size === 0) return alert("Select items first");
+    
+    // Trigger download
+    const res = await fetch('/download/zip', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(Array.from(selectedIds))
+    });
+    
+    if (res.status === 200) {
+        // Convert blob to file download
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "Morgan_Bundle.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toggleSelectMode(); // Reset
+    } else {
+        alert("Error creating zip. Note: Folders cannot be zipped in this version.");
+    }
+}
+
+async function deleteSelected() { if (selectedIds.size === 0) return alert("Select items first"); if (!confirm("Are you sure?")) return; try { const res = await fetch('/delete/bundle', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Array.from(selectedIds)) }); if((await res.json()).status === 'success') window.location.reload(); else alert("Error"); } catch(e) { alert("Network Error"); } }
+async function shareSelected() { if(selectedIds.size===0) return alert("Select items"); const res = await fetch('/share/bundle', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Array.from(selectedIds)) }); const data = await res.json(); if(data.link) { document.getElementById('shareInput').value = data.link; document.getElementById('shareModal').classList.remove('hidden'); toggleSelectMode(); } }
+async function shareFile(itemId) { const res = await fetch(`/share/${itemId}`, { method: 'POST' }); const data = await res.json(); if(data.link) { document.getElementById('shareInput').value = data.link; document.getElementById('shareModal').classList.remove('hidden'); } }
+function copyLink() { document.getElementById("shareInput").select(); document.execCommand("copy"); alert("Copied!"); document.getElementById('shareModal').classList.add('hidden'); }
+async function openCollabModal(id, name) { document.getElementById('collabFolderId').value = id; document.getElementById('collabFolderName').innerText = name; document.getElementById('collabModal').classList.remove('hidden'); await loadTeam(id); }
+async function loadTeam(folderId) { const listDiv = document.getElementById('teamList'); listDiv.innerHTML = '<div class="text-center text-gray-500 text-xs">Loading...</div>'; const res = await fetch(`/folder/team/${folderId}`); const data = await res.json(); if (data.collaborators.length === 0) listDiv.innerHTML = '<div class="text-center text-gray-500 text-xs">No members.</div>'; else { listDiv.innerHTML = ''; data.collaborators.forEach(phone => { listDiv.innerHTML += `<div class="flex justify-between items-center bg-gray-800 p-2 rounded border border-gray-700"><span class="text-gray-300 text-xs font-mono"><i class="fas fa-user mr-2 text-purple-500"></i>${phone}</span><button onclick="removeUser('${phone}')" class="text-red-500 hover:text-red-400 text-xs px-2"><i class="fas fa-times"></i></button></div>`; }); } }
+async function submitCollab() { const id = document.getElementById('collabFolderId').value; const phone = document.getElementById('collabPhone').value; if(!phone) return alert("Enter phone"); const formData = new FormData(); formData.append('folder_id', id); formData.append('phone', phone); const res = await fetch('/folder/add_collaborator', { method: 'POST', body: formData }); if((await res.json()).status === 'success') { document.getElementById('collabPhone').value = ''; await loadTeam(id); } else alert("Error"); }
+async function removeUser(phone) { if(!confirm(`Remove ${phone}?`)) return; const id = document.getElementById('collabFolderId').value; const formData = new FormData(); formData.append('folder_id', id); formData.append('phone', phone); if((await fetch('/folder/remove_collaborator', { method: 'POST', body: formData })).json().status === 'success') await loadTeam(id); }
+</script>
+{% endblock %}

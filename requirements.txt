@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+python-dotenv
+beanie
+motor
+pyrogram
+passlib[bcrypt]
+python-jose[cryptography]
+aiofiles
+requests
